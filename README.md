@@ -3,7 +3,7 @@
 Production-ready project that demonstrates a full-stack AI troubleshooting workflow:
 
 - FastAPI backend with structured logging, authentication, caching, SSE streaming, and contract-safe endpoints
-- LangChain-based RAG pipeline with document ingestion and vector retrieval (Chroma)
+- LangChain-based RAG pipeline with document ingestion and vector retrieval (FAISS)
 - React frontend chat app with loading states, error handling, and a live debug panel
 - Realistic bug scenario: legacy API response mismatch vs frontend expectations, then fixed with response normalization and contract-safe endpoint usage
 
@@ -12,7 +12,7 @@ Production-ready project that demonstrates a full-stack AI troubleshooting workf
 ```text
 React UI
   -> FastAPI /api/chat or /api/chat/stream
-    -> RAG retrieval (LangChain + Chroma)
+    -> RAG retrieval (LangChain + FAISS)
     -> LLM generation (OpenAI if key present, deterministic fallback if no key)
     -> JSON logs + trace IDs
 ```
