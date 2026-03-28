@@ -1,7 +1,8 @@
 import hashlib
 import json
+
 from cachetools import TTLCache
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from app.config import settings
 
@@ -9,9 +10,7 @@ from app.config import settings
 class LlmService:
     def __init__(self) -> None:
         self.cache = TTLCache(maxsize=256, ttl=settings.cache_ttl_seconds)
-        self.client = None
-        if settings.openai_api_key:
-            self.client = ChatOpenAI(model=settings.model_name, api_key=settings.openai_api_key, temperature=0.2)
+        self.client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
 
     def generate(self, question: str, context_blocks: list[str]) -> dict:
         cache_key = self._cache_key(question, context_blocks)
@@ -24,7 +23,12 @@ class LlmService:
                 "If context is insufficient, clearly state assumptions.\n"
                 f"Context:\n{context}\n\nQuestion:\n{question}"
             )
-            answer = self.client.invoke(prompt).content
+            result = self.client.chat.completions.create(
+                model=settings.model_name,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            answer = result.choices[0].message.content or ""
         else:
             answer = self._deterministic_answer(question, context_blocks)
         self.cache[cache_key] = answer
@@ -38,10 +42,16 @@ class LlmService:
                 "If context is insufficient, clearly state assumptions.\n"
                 f"Context:\n{context}\n\nQuestion:\n{question}"
             )
-            for chunk in self.client.stream(prompt):
-                token = chunk.content or ""
-                if token:
-                    yield token
+            stream = self.client.chat.completions.create(
+                model=settings.model_name,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    yield delta
             return
         answer = self._deterministic_answer(question, context_blocks)
         for token in answer.split(" "):

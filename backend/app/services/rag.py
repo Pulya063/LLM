@@ -1,74 +1,99 @@
+import json
+from dataclasses import dataclass
 from pathlib import Path
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-
 from app.config import settings
+
+
+@dataclass
+class RetrievedDocument:
+    page_content: str
+    metadata: dict
 
 
 class DeterministicEmbeddings:
     size = 128
 
-    def _embed(self, text: str) -> list[float]:
+    def embed(self, text: str) -> list[float]:
         vector = [0.0] * self.size
         for i, b in enumerate(text.encode("utf-8")):
             vector[i % self.size] += (b % 31) / 31
         norm = sum(abs(v) for v in vector) or 1.0
         return [v / norm for v in vector]
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed(t) for t in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self._embed(text)
-
 
 class RagService:
     def __init__(self) -> None:
         self.embedding = DeterministicEmbeddings()
-        self.splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+        self.chunk_size = 600
+        self.chunk_overlap = 100
         self.index_dir = Path(settings.vector_store_dir)
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        self.vector_store = self._load_store()
+        self.index_file = self.index_dir / "index.json"
+        self.records = self._load_records()
 
     def ingest_from_disk(self) -> int:
         docs_path = Path(settings.docs_dir)
-        docs = []
+        chunks = []
         for file in docs_path.glob("*.txt"):
             content = file.read_text(encoding="utf-8")
-            docs.extend(self._to_chunks(content, str(file)))
-        self._upsert(docs)
-        return len(docs)
+            chunks.extend(self._to_chunks(content, str(file)))
+        self._upsert(chunks)
+        return len(chunks)
 
     def ingest_text(self, content: str, source: str) -> int:
-        docs = self._to_chunks(content, source)
-        self._upsert(docs)
-        return len(docs)
+        chunks = self._to_chunks(content, source)
+        self._upsert(chunks)
+        return len(chunks)
 
-    def retrieve(self, query: str, top_k: int = 4) -> list[Document]:
-        if self.vector_store is None:
-            self.vector_store = self._load_store()
-        if self.vector_store is None:
+    def retrieve(self, query: str, top_k: int = 4) -> list[RetrievedDocument]:
+        if not self.records:
             return []
-        return self.vector_store.similarity_search(query, k=top_k)
+        query_vec = self.embedding.embed(query)
+        scored = []
+        for record in self.records:
+            score = self._cosine(query_vec, record["embedding"])
+            scored.append((score, record))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        best = scored[:top_k]
+        return [RetrievedDocument(page_content=item[1]["content"], metadata={"source": item[1]["source"]}) for item in best]
 
-    def _to_chunks(self, content: str, source: str) -> list[Document]:
-        splits = self.splitter.split_text(content)
-        return [Document(page_content=chunk, metadata={"source": source}) for chunk in splits]
+    def _to_chunks(self, content: str, source: str) -> list[RetrievedDocument]:
+        text = content.strip()
+        if not text:
+            return []
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = min(start + self.chunk_size, len(text))
+            chunks.append(RetrievedDocument(page_content=text[start:end], metadata={"source": source}))
+            if end == len(text):
+                break
+            start = max(0, end - self.chunk_overlap)
+        return chunks
 
-    def _upsert(self, docs: list[Document]) -> None:
-        if not docs:
+    def _upsert(self, chunks: list[RetrievedDocument]) -> None:
+        if not chunks:
             return
-        if self.vector_store is None:
-            self.vector_store = FAISS.from_documents(docs, self.embedding)
-        else:
-            self.vector_store.add_documents(docs)
-        self.vector_store.save_local(str(self.index_dir))
+        for chunk in chunks:
+            self.records.append(
+                {
+                    "source": chunk.metadata.get("source", "unknown"),
+                    "content": chunk.page_content,
+                    "embedding": self.embedding.embed(chunk.page_content),
+                }
+            )
+        self.index_file.write_text(json.dumps(self.records, ensure_ascii=False), encoding="utf-8")
 
-    def _load_store(self) -> FAISS | None:
-        faiss_file = self.index_dir / "index.faiss"
-        pkl_file = self.index_dir / "index.pkl"
-        if faiss_file.exists() and pkl_file.exists():
-            return FAISS.load_local(str(self.index_dir), self.embedding, allow_dangerous_deserialization=True)
-        return None
+    def _load_records(self) -> list[dict]:
+        if not self.index_file.exists():
+            return []
+        return json.loads(self.index_file.read_text(encoding="utf-8"))
+
+    def _cosine(self, a: list[float], b: list[float]) -> float:
+        dot = sum(x * y for x, y in zip(a, b))
+        norm_a = sum(x * x for x in a) ** 0.5
+        norm_b = sum(y * y for y in b) ** 0.5
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return dot / (norm_a * norm_b)
