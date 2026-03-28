@@ -1,0 +1,75 @@
+:root {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  color: #111827;
+  background: #f3f4f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.chat-panel,
+.debug-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.controls textarea {
+  width: 100%;
+  min-height: 90px;
+}
+
+.toggles {
+  display: flex;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.chat-window {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.message {
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.message.user {
+  background: #dbeafe;
+}
+
+.message.assistant {
+  background: #dcfce7;
+}
+
+.loading {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.debug-panel pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow: auto;
+}

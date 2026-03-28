@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+backend.log
+backend/storage/
+frontend/node_modules/
+.DS_Store

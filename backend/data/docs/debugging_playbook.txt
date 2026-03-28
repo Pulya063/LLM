@@ -1,0 +1,5 @@
+When debugging API flows, start with request identifiers and correlate frontend and backend logs.
+Validate JSON contracts with strict schemas on both sides.
+For retrieval pipelines, compare query terms to chunk metadata and inspect top-k matches.
+If context is irrelevant, reduce chunk size, increase overlap, and include source-aware filters.
+Timeout mitigation includes retries, request cancellation, and response streaming.
