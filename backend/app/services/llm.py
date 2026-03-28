@@ -57,6 +57,40 @@ class LlmService:
         for token in answer.split(" "):
             yield token + " "
 
+    def analyze_incident(self, incident: str, context_blocks: list[str]) -> dict:
+        if self.client:
+            context = "\n\n".join(context_blocks)
+            prompt = (
+                "Analyze the incident and return strict JSON with keys: summary, root_cause, impact, actions.\n"
+                f"Incident:\n{incident}\n\nContext:\n{context}"
+            )
+            result = self.client.chat.completions.create(
+                model=settings.model_name,
+                temperature=0.1,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = result.choices[0].message.content or "{}"
+            parsed = json.loads(text)
+            return {
+                "summary": parsed.get("summary", "No summary"),
+                "root_cause": parsed.get("root_cause", "Unknown"),
+                "impact": parsed.get("impact", "Unknown"),
+                "actions": parsed.get("actions", []),
+            }
+        joined = " ".join(context_blocks)[:500]
+        actions = [
+            "Correlate logs by trace_id across frontend and backend",
+            "Check response schema compatibility before deploy",
+            "Add timeout and retry policy for upstream API",
+        ]
+        return {
+            "summary": f"Incident: {incident[:180]}",
+            "root_cause": "Likely API contract drift or unstable upstream integration",
+            "impact": f"User-facing errors and unstable responses. Context hint: {joined}",
+            "actions": actions,
+        }
+
     def _cache_key(self, question: str, context_blocks: list[str]) -> str:
         payload = json.dumps({"q": question, "c": context_blocks}, sort_keys=True)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()

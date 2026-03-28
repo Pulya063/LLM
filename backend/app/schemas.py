@@ -18,6 +18,21 @@ class ChatResponse(BaseModel):
     debug: dict
 
 
+class IncidentAnalyzeRequest(BaseModel):
+    incident: str = Field(min_length=5, max_length=8000)
+    top_k: int = Field(default=4, ge=1, le=10)
+
+
+class IncidentAnalyzeResponse(BaseModel):
+    summary: str
+    root_cause: str
+    impact: str
+    actions: list[str]
+    sources: list[SourceItem]
+    trace_id: str
+    debug: dict
+
+
 class IngestRequest(BaseModel):
     file_name: str
     content: str

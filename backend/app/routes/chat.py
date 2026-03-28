@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from app.deps import require_api_key
-from app.schemas import ChatRequest, ChatResponse, SourceItem
+from app.schemas import ChatRequest, ChatResponse, IncidentAnalyzeRequest, IncidentAnalyzeResponse, SourceItem
 from app.services.llm import LlmService
 from app.services.logger import get_logger
 from app.services.rag import RagService
@@ -75,3 +75,26 @@ async def stream_chat(payload: ChatRequest):
         yield {"event": "done", "data": payload_done}
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/incident/analyze", response_model=IncidentAnalyzeResponse, dependencies=[Depends(require_api_key)])
+async def analyze_incident(payload: IncidentAnalyzeRequest):
+    trace_id = str(uuid4())
+    docs = rag_service.retrieve(payload.incident, top_k=payload.top_k)
+    context_blocks = [doc.page_content for doc in docs]
+    result = llm_service.analyze_incident(payload.incident, context_blocks)
+    sources = [
+        SourceItem(source=doc.metadata.get("source", "unknown"), snippet=doc.page_content[:180])
+        for doc in docs
+    ]
+    body = {
+        "summary": result["summary"],
+        "root_cause": result["root_cause"],
+        "impact": result["impact"],
+        "actions": result["actions"],
+        "sources": sources,
+        "trace_id": trace_id,
+        "debug": {"context_count": len(docs)},
+    }
+    logger.info("incident_analysis_completed", extra={"extra_payload": {"trace_id": trace_id, "context_count": len(docs)}})
+    return body

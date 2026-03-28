@@ -36,6 +36,27 @@ export async function fetchLogs() {
   return response.json()
 }
 
+export async function analyzeIncident(incident, topK) {
+  const response = await fetch(`${BASE_URL}/api/incident/analyze`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ incident, top_k: topK })
+  })
+  const raw = await response.json()
+  if (!response.ok) {
+    throw new Error(raw.detail || 'Incident analysis failed')
+  }
+  return {
+    summary: raw.summary,
+    rootCause: raw.root_cause,
+    impact: raw.impact,
+    actions: raw.actions || [],
+    sources: raw.sources || [],
+    traceId: raw.trace_id,
+    raw
+  }
+}
+
 export function streamChat(message, topK, onToken, onDone, onError) {
   const url = `${BASE_URL}/api/chat/stream`
   fetch(url, {

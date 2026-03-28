@@ -30,3 +30,14 @@ def test_legacy_bug_endpoint_shape():
     assert "response" in body
     assert "source_items" in body
     assert "request_id" in body
+
+
+def test_incident_analyze_shape():
+    payload = {"incident": "Users receive 500 after deploy when chat endpoint returns old JSON keys", "top_k": 2}
+    response = client.post("/api/incident/analyze", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+    body = response.json()
+    assert "summary" in body
+    assert "root_cause" in body
+    assert "impact" in body
+    assert "actions" in body

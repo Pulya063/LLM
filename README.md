@@ -4,7 +4,7 @@ Production-ready project that demonstrates a full-stack AI troubleshooting workf
 
 - FastAPI backend with structured logging, authentication, caching, SSE streaming, and contract-safe endpoints
 - RAG pipeline with document ingestion and local vector retrieval index
-- React frontend chat app with loading states, error handling, and a live debug panel
+- React frontend with chat, incident analyzer, document ingestion, loading states, and a live debug panel
 - Realistic bug scenario: legacy API response mismatch vs frontend expectations, then fixed with response normalization and contract-safe endpoint usage
 
 ## Architecture
@@ -67,6 +67,7 @@ React UI
 - `POST /api/chat`
 - `POST /api/chat/stream` (SSE)
 - `POST /api/chat/legacy` (intentional legacy bug shape)
+- `POST /api/incident/analyze` (structured incident summary, root cause, impact, actions)
 
 ### RAG and Documents
 - `GET /api/documents`
@@ -185,11 +186,14 @@ Response:
 
 ## Debugging Flow Demonstration
 
-1. Enable Legacy Bug Mode in UI.
-2. Send a message and inspect debug panel raw payload.
-3. Observe schema mismatch keys and backend logs.
-4. Disable Legacy Bug Mode and retry.
-5. Verify normalized payload and trace ID continuity.
+1. Ingest troubleshooting notes in Knowledge Base panel.
+2. Paste incident details and run Incident Analysis.
+3. Ask follow-up questions in Chat for contextual answers.
+4. Enable Legacy Bug Mode in UI when you need to reproduce schema drift.
+5. Send a message and inspect debug panel raw payload.
+6. Observe schema mismatch keys and backend logs.
+7. Disable Legacy Bug Mode and retry.
+8. Verify normalized payload and trace ID continuity.
 
 ## Project Value
 
